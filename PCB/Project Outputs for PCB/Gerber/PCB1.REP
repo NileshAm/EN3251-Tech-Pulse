@@ -2,17 +2,20 @@
 FileName = PCB1.GBR
 AutoAperture = True
 *************************************************************
-Generating : Bottom Paste
-      File : PCB1_Paste_Bot.gbr
+Generating : Top Overlay
+      File : PCB1_Legend_Top.gbr
 
-    Adding Layer      : Bottom Paste
-
-    Adding Layer      : Bottom Layer
-
-    Adding Layer      : Multi-Layer
+    Adding Layer      : Top Overlay
 
 
 Used DCodes :
+    D10
+    D11
+    D12
+    D13
+    D14
+    D15
+    D16
 *************************************************************
 
 *************************************************************
@@ -41,27 +44,8 @@ Used DCodes :
     D28
     D29
     D30
-*************************************************************
-
-*************************************************************
-Generating : Bottom Solder
-      File : PCB1_Soldermask_Bot.gbr
-
-    Adding Layer      : Bottom Solder
-
-    Adding Layer      : Bottom Layer
-
-    Adding Layer      : Multi-Layer
-
-
-Used DCodes :
-    D44
-    D45
-    D46
-    D47
-    D48
-    D49
-    D50
+    D31
+    D32
 *************************************************************
 
 *************************************************************
@@ -76,10 +60,8 @@ Generating : Top Solder
 
 
 Used DCodes :
-    D17
-    D18
-    D31
-    D32
+    D24
+    D30
     D33
     D34
     D35
@@ -98,56 +80,10 @@ Used DCodes :
     D48
     D49
     D50
-*************************************************************
-
-*************************************************************
-Generating : Bottom Overlay
-      File : PCB1_Legend_Bot.gbr
-
-    Adding Layer      : Bottom Overlay
-
-
-Used DCodes :
-*************************************************************
-
-*************************************************************
-Generating : Top Overlay
-      File : PCB1_Legend_Top.gbr
-
-    Adding Layer      : Top Overlay
-
-
-Used DCodes :
-    D10
-    D11
-    D12
-    D13
-    D14
-    D15
-    D16
-*************************************************************
-
-*************************************************************
-Generating : Bottom Layer
-      File : PCB1_Copper_Signal_Bot.gbr
-
-    Adding Layer      : Bottom Layer
-
-    Adding Layer      : Multi-Layer
-
-
-Used DCodes :
     D51
     D52
     D53
-    D55
-    D56
-    D57
-    D58
-    D59
-    D60
-    D61
-    D62
+    D54
 *************************************************************
 
 *************************************************************
@@ -174,10 +110,8 @@ Used DCodes :
     D28
     D29
     D30
-    D51
-    D52
-    D53
-    D54
+    D31
+    D32
     D55
     D56
     D57
@@ -186,6 +120,78 @@ Used DCodes :
     D60
     D61
     D62
+    D63
+    D64
+    D65
+    D66
+*************************************************************
+
+*************************************************************
+Generating : Bottom Layer
+      File : PCB1_Copper_Signal_Bot.gbr
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D55
+    D56
+    D57
+    D59
+    D60
+    D61
+    D62
+    D63
+    D64
+    D65
+    D66
+*************************************************************
+
+*************************************************************
+Generating : Bottom Solder
+      File : PCB1_Soldermask_Bot.gbr
+
+    Adding Layer      : Bottom Solder
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D48
+    D49
+    D50
+    D51
+    D52
+    D53
+    D54
+*************************************************************
+
+*************************************************************
+Generating : Bottom Paste
+      File : PCB1_Paste_Bot.gbr
+
+    Adding Layer      : Bottom Paste
+
+    Adding Layer      : Bottom Layer
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+*************************************************************
+
+*************************************************************
+Generating : Bottom Overlay
+      File : PCB1_Legend_Bot.gbr
+
+    Adding Layer      : Bottom Overlay
+
+
+Used DCodes :
 *************************************************************
 
 *************************************************************
@@ -194,6 +200,6 @@ Generating : Profile
 
 
 Used DCodes :
-    D63
+    D67
 *************************************************************
 

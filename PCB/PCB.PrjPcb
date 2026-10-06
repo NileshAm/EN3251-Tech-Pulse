@@ -100,8 +100,89 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=
 
+[Document4]
+DocumentPath=PCB.BomDoc
+AnnotationEnabled=1
+AnnotateStartValue=1
+AnnotationIndexControlEnabled=0
+AnnotateSuffix=
+AnnotateScope=All
+AnnotateOrder=-1
+DoLibraryUpdate=1
+DoDatabaseUpdate=1
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
+DItemRevisionGUID=
+GenerateClassCluster=0
+DocumentUniqueId=
+
 [GeneratedDocument1]
+DocumentPath=Project Outputs for PCB\BOM\Bill of Materials-PCB.xlsx
+DItemRevisionGUID=
+
+[GeneratedDocument2]
 DocumentPath=Project Outputs for PCB\Design Rule Check - PCB1.html
+DItemRevisionGUID=
+
+[GeneratedDocument3]
+DocumentPath=Project Outputs for PCB\NC Drill\PCB1.DRR
+DItemRevisionGUID=
+
+[GeneratedDocument4]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1.EXTREP
+DItemRevisionGUID=
+
+[GeneratedDocument5]
+DocumentPath=Project Outputs for PCB\NC Drill\PCB1.LDP
+DItemRevisionGUID=
+
+[GeneratedDocument6]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1.REP
+DItemRevisionGUID=
+
+[GeneratedDocument7]
+DocumentPath=Project Outputs for PCB\ExportSTEP\PCB1.step
+DItemRevisionGUID=
+
+[GeneratedDocument8]
+DocumentPath=Project Outputs for PCB\NC Drill\PCB1.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument9]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Copper_Signal_Bot.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument10]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Copper_Signal_Top.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument11]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Legend_Bot.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument12]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Legend_Top.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument13]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Paste_Bot.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument14]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Paste_Top.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument15]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Profile.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument16]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Soldermask_Bot.gbr
+DItemRevisionGUID=
+
+[GeneratedDocument17]
+DocumentPath=Project Outputs for PCB\Gerber\PCB1_Soldermask_Top.gbr
 DItemRevisionGUID=
 
 [Configuration1]
