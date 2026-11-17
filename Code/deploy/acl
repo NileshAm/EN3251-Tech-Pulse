@@ -1,0 +1,5 @@
+user esp32
+topic write techpulse/power-01/telemetry
+
+user collector
+topic read techpulse/+/telemetry
