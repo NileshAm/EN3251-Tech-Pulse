@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "mqtt_ca.h"
+#include "wifi_setup.h"
 
 // ======================================
 // HARDWARE
@@ -691,17 +692,7 @@ void setup() {
     Serial.println("[HLW] UART initialized");
 
     // Connect Wi-Fi
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    Serial.print("[WiFi] Connecting");
-
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-
-    Serial.println("\n[WiFi] Connected!");
-    Serial.println(WiFi.localIP());
+    beginWifiSetup();
 
     // Synchronize clock for TLS validation
     configTime(
@@ -709,15 +700,6 @@ void setup() {
         "pool.ntp.org",
         "time.google.com"
     );
-
-    Serial.print("[TIME] Syncing");
-
-    while (time(nullptr) < 1700000000) {
-        delay(500);
-        Serial.print(".");
-    }
-
-    Serial.println("\n[TIME] OK");
 
     // Secure MQTT configuration
     mqtt.setCaCert(MQTT_ROOT_CA);
@@ -742,10 +724,7 @@ void setup() {
         0
     );
 
-    mqtt.loopStart();
-
-    Serial.println("[MQTT] Client started");
-    Serial.println(telemetryTopic);
+    // Start MQTT in loop after Wi-Fi and TLS time are ready.
 }
 
 // ======================================
@@ -755,6 +734,17 @@ void setup() {
 void loop() {
 
     static uint32_t lastDiscoveryAttempt = 0;
+    static bool mqttStarted = false;
+    static uint32_t lastMqttStartAttempt = 0;
+
+    serviceWifiSetup();
+    if (!mqttStarted && WiFi.status() == WL_CONNECTED &&
+        time(nullptr) >= 1700000000 && millis() - lastMqttStartAttempt >= 5000) {
+        lastMqttStartAttempt = millis();
+        mqttStarted = mqtt.loopStart();
+        if (mqttStarted)
+            Serial.println("[MQTT] Client started");
+    }
 
     // Read the meter even while MQTT is offline, before accepting ON commands.
     if (millis() - lastSample >= SAMPLE_INTERVAL) {

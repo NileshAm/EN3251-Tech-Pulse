@@ -15,6 +15,26 @@ Simulation is off by default. Explicit `pio run -e esp32-c3-sim -t upload` uses 
 
 Verify physical isolation before USB connection to an energized PCB. GPIOs, baud straps, calibration and real UART/HA operation require physical verification.
 
+## Wi-Fi setup fallback
+
+At boot, the ESP tries the last successfully saved Wi-Fi credentials (or
+`WIFI_SSID` / `WIFI_PASSWORD` from `include/config.h` on first use). If it has
+not connected within 10 seconds, it opens an unsecured hotspot named
+`TechPulse-Setup-XXXX` (the suffix identifies the device).
+
+1. Connect your phone or laptop to that hotspot and stay connected even if it reports no internet.
+2. Open **http://192.168.4.1** if the setup page does not open automatically.
+3. Enter the available **2.4 GHz** network name and password, then press **Connect**.
+
+Each attempt lasts up to 10 seconds. A failed attempt leaves the setup page
+available to retry. Successful credentials are saved in ESP flash for future
+boots, and the hotspot closes after 8 seconds. If the saved network later becomes
+unavailable, the setup hotspot opens again. Meter sampling and relay protection
+continue during setup; MQTT starts once Wi-Fi and the TLS clock are ready.
+
+The setup hotspot is open, so configure it near the device on a trusted site.
+Credentials are stored locally on the ESP and are never printed to serial.
+
 ## Optional legacy tools
 
 `server/` (Python/SQLite/custom dashboard), `compose.yaml` (laptop broker), and `deploy/` remain for reference and are not required by Home Assistant. Their previous usage is preserved in [docs/README_LEGACY.md](docs/README_LEGACY.md); relative paths and commands there refer to the project root. Its collector energy estimate is not part of the new workflow. The original standalone hardware test remains unchanged in `docs/original-hardware-test.cpp` and is not compiled.
