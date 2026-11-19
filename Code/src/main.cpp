@@ -20,6 +20,10 @@ ESP32MQTTClient mqtt;
 #define RELAY_PIN 7
 #define RELAY_ON HIGH
 #define RELAY_OFF LOW
+constexpr uint8_t RELAY_LED_PIN = 8; // SuperMini onboard LED, active-low.
+constexpr uint8_t RELAY_BUTTON_PIN = 21; // Momentary button to GND.
+constexpr uint32_t BUTTON_DEBOUNCE_MS = 40;
+constexpr uint32_t WIFI_RELAY_TIMEOUT_MS = 10000;
 
 bool relayState = false;
 const float MAX_CURRENT_A = 1.0f;
@@ -357,6 +361,8 @@ void setRelay(bool on) {
         relayState ? RELAY_ON : RELAY_OFF
     );
 
+    digitalWrite(RELAY_LED_PIN, relayState ? LOW : HIGH);
+
     Serial.printf(
         "[RELAY] %s\n",
         relayState ? "ON" : "OFF"
@@ -365,6 +371,52 @@ void setRelay(bool on) {
     publishRelayState();
 }
 
+// A disconnect trips once per outage. A deliberate button press after the trip
+// permits offline operation; reconnecting rearms the timer without turning ON.
+bool wifiOutageActive = false;
+bool wifiOutageHandled = false;
+uint32_t wifiDisconnectedAt = 0;
+
+void serviceRelayWifiSafety() {
+    const uint32_t now = millis();
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiOutageActive = false;
+        wifiOutageHandled = false;
+        return;
+    }
+    if (!wifiOutageActive) {
+        wifiOutageActive = true;
+        wifiDisconnectedAt = now;
+    }
+    if (!wifiOutageHandled && now - wifiDisconnectedAt >= WIFI_RELAY_TIMEOUT_MS) {
+        wifiOutageHandled = true;
+        // Discard any command queued before the timeout.
+        relayCommandPending = false;
+        if (relayState) {
+            Serial.println("[RELAY] Wi-Fi disconnected for 10 seconds; switching OFF");
+            setRelay(false);
+        }
+    }
+}
+
+void serviceRelayButton() {
+    static bool lastReading = HIGH;
+    static bool stableReading = HIGH;
+    static uint32_t changedAt = 0;
+    const bool reading = digitalRead(RELAY_BUTTON_PIN);
+    const uint32_t now = millis();
+    if (reading != lastReading) {
+        lastReading = reading;
+        changedAt = now;
+    }
+    if (reading != stableReading && now - changedAt >= BUTTON_DEBOUNCE_MS) {
+        stableReading = reading;
+        if (stableReading == LOW) {
+            Serial.println("[RELAY] Button pressed; toggling relay");
+            setRelay(!relayState);
+        }
+    }
+}
 void publishProtectionFlags(const char* overcurrent, const char* overvoltage) {
     if (!mqtt.isConnected())
         return;
@@ -652,12 +704,15 @@ void publishMeasurements() {
 
 void setup() {
 
-    Serial.begin(115200);
-    delay(1000);
-
-    // Safe relay startup
+    // Set safe outputs before any startup delays or network initialization.
     digitalWrite(RELAY_PIN, RELAY_OFF);
     pinMode(RELAY_PIN, OUTPUT);
+    digitalWrite(RELAY_LED_PIN, HIGH);
+    pinMode(RELAY_LED_PIN, OUTPUT);
+    pinMode(RELAY_BUTTON_PIN, INPUT_PULLUP);
+
+    Serial.begin(115200);
+    delay(1000);
 
     // Hardware identity
     WiFi.mode(WIFI_STA);
@@ -738,6 +793,7 @@ void loop() {
     static uint32_t lastMqttStartAttempt = 0;
 
     serviceWifiSetup();
+    serviceRelayWifiSafety();
     if (!mqttStarted && WiFi.status() == WL_CONNECTED &&
         time(nullptr) >= 1700000000 && millis() - lastMqttStartAttempt >= 5000) {
         lastMqttStartAttempt = millis();
@@ -756,8 +812,12 @@ void loop() {
     if (relayCommandPending) {
         bool requested = requestedRelayState;
         relayCommandPending = false;
-        setRelay(requested);
+        if (WiFi.status() == WL_CONNECTED)
+            setRelay(requested);
     }
+
+    // Local control remains available during Wi-Fi setup and outages.
+    serviceRelayButton();
 
     // Handle reconnection and HA discovery
     if (mqtt.isConnected() && discoveryRequested &&

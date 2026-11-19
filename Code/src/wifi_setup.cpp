@@ -9,6 +9,7 @@
 
 namespace {
 constexpr uint32_t CONNECT_TIMEOUT_MS = 20000;
+constexpr uint32_t RESTART_DELAY_MS = 1500;
 constexpr uint8_t WIFI_LED_PIN = 0;
 constexpr uint32_t LED_BLINK_MS = 500;
 bool ledOn = false;
@@ -21,7 +22,8 @@ bool storageReady = false;
 bool portalActive = false;
 bool routesRegistered = false;
 bool connecting = false;
-bool connectionQueued = false;
+bool restartQueued = false;
+uint32_t restartQueuedAt = 0;
 bool wasConnected = false;
 struct Network { char ssid[33]; char password[65]; };
 struct Settings { uint32_t magic; Network network; };
@@ -129,7 +131,7 @@ void startPortal() {
             server.send(200, "text/plain", message);
         });
         server.on("/connect", HTTP_POST, []() {
-            if (connecting || connectionQueued || wasConnected) {
+            if (connecting || restartQueued || wasConnected) {
                 server.send(409, "text/plain", "A connection is already in progress. Return to the setup page for status.");
                 return;
             }
@@ -154,11 +156,20 @@ void startPortal() {
                 return;
             }
             settings = next;
-            Serial.println("[WiFi] Credentials saved to EEPROM; connection attempts queued");
-            connectionQueued = true;
-            message = "Credentials saved to EEPROM. Connecting...";
-            server.sendHeader("Location", "/");
-            server.send(303, "text/plain", "Connecting. Return to setup for status.");
+            Serial.println("[WiFi] Credentials saved to EEPROM; restart queued");
+            message = "Credentials saved. Restarting to connect to your Wi-Fi...";
+            server.sendHeader("Cache-Control", "no-store");
+            server.send(200, "text/html",
+                        "<!doctype html><html lang=\"en\"><head>"
+                        "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                        "<title>TechPulse Wi-Fi saved</title></head><body>"
+                        "<h1>Wi-Fi credentials saved</h1>"
+                        "<p>TechPulse is restarting to connect to your Wi-Fi. The setup hotspot will disconnect.</p>"
+                        "<p>Rejoin your regular Wi-Fi. If the connection fails, the setup hotspot will return.</p>"
+                        "</body></html>");
+            // Let the HTTP response reach the browser before restarting from the loop.
+            restartQueuedAt = millis();
+            restartQueued = true;
         });
         server.onNotFound([]() {
             server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString() + "/");
@@ -226,9 +237,12 @@ void serviceWifiSetup() {
         dns.processNextRequest();
         server.handleClient();
     }
-    if (connectionQueued) {
-        connectionQueued = false;
-        startSequence();
+    if (restartQueued) {
+        if (millis() - restartQueuedAt >= RESTART_DELAY_MS) {
+            Serial.println("[WiFi] Restarting to connect using saved credentials");
+            ESP.restart();
+        }
+        return;
     }
     if (WiFi.status() == WL_CONNECTED) {
         if (connecting) {

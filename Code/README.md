@@ -46,7 +46,7 @@ connection, timeout and hotspot status.
 
 An external active-high LED on GPIO 0 blinks every 500 ms while disconnected
 (including setup hotspot mode), then stays on while connected to Wi-Fi.
-After a submission is saved, the ESP tries that network. If it fails, the setup
+After a submission is saved, the ESP restarts and tries that network. If it fails, the setup
 hotspot stays available for another submission.
 
 For serial logs, select the ESP's USB COM port (not a **Standard Serial over
@@ -54,6 +54,22 @@ Bluetooth link**), set **115200 baud**, start monitoring, then press reset on th
 ESP to see boot logs. If no USB serial port appears, reconnect with a USB data
 cable and refresh the port list. Close other monitors using the same port.
 
+## Relay controls
+
+- Relay output: GPIO 7, active-high. Every power-up/reset starts OFF.
+- Button: momentary switch between GPIO 21 and GND, using the internal pull-up.
+  Each debounced press toggles the relay; holding it does not repeat.
+- SuperMini onboard LED: GPIO 8, active-low. Lit means relay ON; dark means OFF.
+  The external GPIO 0 LED continues to show Wi-Fi status.
+- Home Assistant MQTT ON/OFF commands also control the relay while connected.
+- After 10 continuous seconds without Wi-Fi, the relay switches OFF once per
+  outage. A new button press allows local operation while still offline.
+  Reconnecting rearms the timeout and leaves the relay in its current state;
+  it never automatically turns the relay ON.
+- Existing meter protections apply to both button and MQTT ON requests: a recent
+  safe reading is required. Unsafe or unavailable readings switch the relay OFF.
+- Saving Wi-Fi credentials shows a confirmation and restarts after 1.5 seconds
+  to connect using the saved network. The relay starts OFF after this restart.
 ## Optional legacy tools
 
 `server/` (Python/SQLite/custom dashboard), `compose.yaml` (laptop broker), and `deploy/` remain for reference and are not required by Home Assistant. Their previous usage is preserved in [docs/README_LEGACY.md](docs/README_LEGACY.md); relative paths and commands there refer to the project root. Its collector energy estimate is not part of the new workflow. The original standalone hardware test remains unchanged in `docs/original-hardware-test.cpp` and is not compiled.
