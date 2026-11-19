@@ -17,23 +17,42 @@ Verify physical isolation before USB connection to an energized PCB. GPIOs, baud
 
 ## Wi-Fi setup fallback
 
-At boot, the ESP tries the last successfully saved Wi-Fi credentials (or
-`WIFI_SSID` / `WIFI_PASSWORD` from `include/config.h` on first use). If it has
-not connected within 10 seconds, it opens an unsecured hotspot named
+At boot, the ESP loads one Wi-Fi credential from EEPROM and tries connecting
+for up to 20 seconds. If it cannot connect, it opens an unsecured hotspot named
 `TechPulse-Setup-XXXX` (the suffix identifies the device).
+On upgrade, the previous firmware's primary network is retained as the single
+network. On first use, the older saved credential or `WIFI_SSID` / `WIFI_PASSWORD`
+from `include/config.h` is used.
 
 1. Connect your phone or laptop to that hotspot and stay connected even if it reports no internet.
 2. Open **http://192.168.4.1** if the setup page does not open automatically.
-3. Enter the available **2.4 GHz** network name and password, then press **Connect**.
+3. Enter the **2.4 GHz** network name and password, then press **Save and connect**.
 
-Each attempt lasts up to 10 seconds. A failed attempt leaves the setup page
-available to retry. Successful credentials are saved in ESP flash for future
-boots, and the hotspot closes after 8 seconds. If the saved network later becomes
-unavailable, the setup hotspot opens again. Meter sampling and relay protection
+The credential is saved before connecting, even if the network is currently
+unavailable. ESP32's EEPROM library uses persistent flash storage, so the settings
+survive power loss. Saving replaces the previous credential. An empty password
+means an open network.
+
+Each attempt lasts up to 20 seconds. If it fails, the setup page stays available
+to retry. On success, the hotspot closes after 8 seconds. If the connection later
+drops, the ESP retries the saved network, then opens the setup hotspot on failure.
+Meter sampling and relay protection
 continue during setup; MQTT starts once Wi-Fi and the TLS clock are ready.
 
 The setup hotspot is open, so configure it near the device on a trusted site.
-Credentials are stored locally on the ESP and are never printed to serial.
+Credentials are stored locally on the ESP. Submitted SSIDs and passwords are
+printed in plaintext to serial at 115200 baud for debugging, along with save,
+connection, timeout and hotspot status.
+
+An external active-high LED on GPIO 0 blinks every 500 ms while disconnected
+(including setup hotspot mode), then stays on while connected to Wi-Fi.
+After a submission is saved, the ESP tries that network. If it fails, the setup
+hotspot stays available for another submission.
+
+For serial logs, select the ESP's USB COM port (not a **Standard Serial over
+Bluetooth link**), set **115200 baud**, start monitoring, then press reset on the
+ESP to see boot logs. If no USB serial port appears, reconnect with a USB data
+cable and refresh the port list. Close other monitors using the same port.
 
 ## Optional legacy tools
 
