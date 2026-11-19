@@ -26,8 +26,8 @@ constexpr uint32_t BUTTON_DEBOUNCE_MS = 40;
 constexpr uint32_t WIFI_RELAY_TIMEOUT_MS = 10000;
 
 bool relayState = false;
-const float MAX_CURRENT_A = 1.0f;
-const float MAX_VOLTAGE_V = 235.0f;
+const float MAX_CURRENT_A = PROTECTION_MAX_CURRENT_A;
+const float MAX_VOLTAGE_V = PROTECTION_MAX_VOLTAGE_V;
 const uint32_t PROTECTION_SAMPLE_MAX_AGE = 3000;
 bool protectionSampleSafe = false;
 uint32_t lastProtectionSample = 0;

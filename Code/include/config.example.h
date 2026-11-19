@@ -1,7 +1,9 @@
 #pragma once
+#define PROTECTION_MAX_VOLTAGE_V 250.0f
+#define PROTECTION_MAX_CURRENT_A 2.0f
 // Copy to config.h and configure from your PCB schematic.
-#define WIFI_SSID "YOUR_WIFI"
-#define WIFI_PASSWORD "YOUR_PASSWORD"
+#define WIFI_SSID "Minaya's Galaxy S26 Ultra"
+#define WIFI_PASSWORD "Minu1723"
 #define MQTT_HOST "192.168.1.100" // Raspberry Pi LAN IP; no http:// or :8123
 #define MQTT_PORT 1883
 #define MQTT_USER "esp32"

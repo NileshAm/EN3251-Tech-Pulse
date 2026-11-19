@@ -17,42 +17,35 @@ Verify physical isolation before USB connection to an energized PCB. GPIOs, baud
 
 ## Wi-Fi setup fallback
 
-At boot, the ESP loads one Wi-Fi credential from EEPROM and tries connecting
-for up to 20 seconds. If it cannot connect, it opens an unsecured hotspot named
-`TechPulse-Setup-XXXX` (the suffix identifies the device).
-On upgrade, the previous firmware's primary network is retained as the single
-network. On first use, the older saved credential or `WIFI_SSID` / `WIFI_PASSWORD`
-from `include/config.h` is used.
+On first boot with this firmware revision, `WIFI_SSID` and `WIFI_PASSWORD` from
+`include/config.h` are saved to EEPROM, replacing the older-format record.
+Later boots use the saved EEPROM credential; setup-page changes survive power loss.
+Editing config.h after initialization does not overwrite an existing saved credential.
 
-1. Connect your phone or laptop to that hotspot and stay connected even if it reports no internet.
-2. Open **http://192.168.4.1** if the setup page does not open automatically.
-3. Enter the **2.4 GHz** network name and password, then press **Save and connect**.
+At startup, and after an established connection drops, the ESP tries the saved
+network for **10 seconds in station-only mode**. If it fails, it switches to
+**AP-only mode**, starts `TechPulse-Setup-XXXX`, and serves the setup page.
+It stays in setup mode without background station retries so the page stays available.
 
-The credential is saved before connecting, even if the network is currently
-unavailable. ESP32's EEPROM library uses persistent flash storage, so the settings
-survive power loss. Saving replaces the previous credential. An empty password
-means an open network.
+1. Join `TechPulse-Setup-XXXX` and stay connected despite the no-internet warning.
+2. Open **http://192.168.4.1** explicitly (HTTP, not HTTPS).
+3. Enter the **2.4 GHz** SSID and password, then select **Save and connect**.
 
-Each attempt lasts up to 20 seconds. If it fails, the setup page stays available
-to retry. On success, the hotspot closes after 8 seconds. If the connection later
-drops, the ESP retries the saved network, then opens the setup hotspot on failure.
-Meter sampling and relay protection
-continue during setup; MQTT starts once Wi-Fi and the TLS clock are ready.
+The credential is committed to EEPROM before connecting. After 1.5 seconds to
+allow the HTTP response to arrive, the setup hotspot closes and the ESP tries
+station-only mode for 10 seconds. On failure the setup hotspot returns; rejoin it
+to submit credentials again. Resetting also retries the saved network.
+AP and station modes never run simultaneously. The setup web server is available
+only in fallback AP mode, not after joining the regular network.
 
-The setup hotspot is open, so configure it near the device on a trusted site.
-Credentials are stored locally on the ESP. Submitted SSIDs and passwords are
-printed in plaintext to serial at 115200 baud for debugging, along with save,
-connection, timeout and hotspot status.
+Meter sampling, relay protection and the local button continue during setup.
+MQTT starts after station Wi-Fi and TLS time are ready. GPIO 0 blinks while
+not connected to the regular Wi-Fi and stays lit once connected.
 
-An external active-high LED on GPIO 0 blinks every 500 ms while disconnected
-(including setup hotspot mode), then stays on while connected to Wi-Fi.
-After a submission is saved, the ESP restarts and tries that network. If it fails, the setup
-hotspot stays available for another submission.
-
-For serial logs, select the ESP's USB COM port (not a **Standard Serial over
-Bluetooth link**), set **115200 baud**, start monitoring, then press reset on the
-ESP to see boot logs. If no USB serial port appears, reconnect with a USB data
-cable and refresh the port list. Close other monitors using the same port.
+The setup hotspot is unsecured. Credentials are stored locally and submitted
+credentials are printed in plaintext to serial as in the existing debug workflow.
+Serial logs at 115200 baud show the attempted SSID, connection status and IP.
+Verify isolation before connecting USB to an energized PCB.
 
 ## Relay controls
 
@@ -68,8 +61,8 @@ cable and refresh the port list. Close other monitors using the same port.
   it never automatically turns the relay ON.
 - Existing meter protections apply to both button and MQTT ON requests: a recent
   safe reading is required. Unsafe or unavailable readings switch the relay OFF.
-- Saving Wi-Fi credentials shows a confirmation and restarts after 1.5 seconds
-  to connect using the saved network. The relay starts OFF after this restart.
+- Saving Wi-Fi credentials shows a confirmation, then switches to station-only
+  mode after 1.5 seconds without restarting. Existing relay protections still apply.
 ## Optional legacy tools
 
 `server/` (Python/SQLite/custom dashboard), `compose.yaml` (laptop broker), and `deploy/` remain for reference and are not required by Home Assistant. Their previous usage is preserved in [docs/README_LEGACY.md](docs/README_LEGACY.md); relative paths and commands there refer to the project root. Its collector energy estimate is not part of the new workflow. The original standalone hardware test remains unchanged in `docs/original-hardware-test.cpp` and is not compiled.

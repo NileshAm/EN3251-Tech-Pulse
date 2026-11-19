@@ -2,14 +2,13 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
-#include <Preferences.h>
 #include <EEPROM.h>
 #include "config.h"
 #include "wifi_setup.h"
 
 namespace {
-constexpr uint32_t CONNECT_TIMEOUT_MS = 20000;
-constexpr uint32_t RESTART_DELAY_MS = 1500;
+constexpr uint32_t CONNECT_TIMEOUT_MS = 10000;
+constexpr uint32_t SUBMISSION_DELAY_MS = 1500;
 constexpr uint8_t WIFI_LED_PIN = 0;
 constexpr uint32_t LED_BLINK_MS = 500;
 bool ledOn = false;
@@ -17,22 +16,20 @@ uint32_t lastLedToggle = 0;
 int lastWifiStatus = -1;
 WebServer server(80);
 DNSServer dns;
-Preferences preferences;
 bool storageReady = false;
 bool portalActive = false;
 bool routesRegistered = false;
 bool connecting = false;
-bool restartQueued = false;
-uint32_t restartQueuedAt = 0;
+bool connectionQueued = false;
+uint32_t connectionQueuedAt = 0;
 bool wasConnected = false;
 struct Network { char ssid[33]; char password[65]; };
 struct Settings { uint32_t magic; Network network; };
-constexpr uint32_t SETTINGS_MAGIC = 0x54505731;
+constexpr uint32_t SETTINGS_MAGIC = 0x54505733;
 // Keep the earlier allocation size so upgrading does not truncate its record.
 constexpr size_t EEPROM_BYTES = 200;
 Settings settings = {};
 uint32_t attemptStarted = 0;
-uint32_t connectedAt = 0;
 String pendingSsid;
 String pendingPassword;
 String message;
@@ -86,12 +83,12 @@ void startAttempt() {
     pendingSsid = settings.network.ssid;
     pendingPassword = settings.network.password;
     WiFi.disconnect(false, false);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(pendingSsid.c_str(), pendingPassword.c_str());
     attemptStarted = millis();
     connecting = true;
-    connectedAt = 0;
-    message = "Connecting to saved network (up to 20 seconds)...";
-    Serial.printf("[WiFi] Trying SSID: %s (20 second timeout)\n", pendingSsid.c_str());
+    message = "Connecting to saved network (up to 10 seconds)...";
+    Serial.printf("[WiFi] Trying SSID: %s (10 second timeout)\n", pendingSsid.c_str());
 }
 
 bool saveSettings(const Settings &next) {
@@ -105,16 +102,27 @@ bool validNetwork(const Network &network) {
            memchr(network.password, '\0', sizeof(network.password));
 }
 
+void startPortal();
+
 void startSequence() {
     wasConnected = false;
-    connectedAt = 0;
+    if (portalActive) {
+        server.stop();
+        dns.stop();
+        WiFi.softAPdisconnect(true);
+        portalActive = false;
+    }
     if (settings.network.ssid[0]) startAttempt();
-    else message = "No saved network. Enter Wi-Fi credentials below.";
+    else {
+        message = "No saved network. Enter Wi-Fi credentials below.";
+        startPortal();
+    }
 }
 
 void startPortal() {
-    WiFi.mode(WIFI_AP_STA);
     String name = "TechPulse-Setup-" + WiFi.macAddress().substring(12);
+    WiFi.disconnect(false, false);
+    WiFi.mode(WIFI_AP);
     name.replace(":", "");
     if (!WiFi.softAP(name.c_str())) {
         Serial.println("[WiFi] Could not start setup hotspot; retrying next loop");
@@ -131,7 +139,7 @@ void startPortal() {
             server.send(200, "text/plain", message);
         });
         server.on("/connect", HTTP_POST, []() {
-            if (connecting || restartQueued || wasConnected) {
+            if (connectionQueued || wasConnected) {
                 server.send(409, "text/plain", "A connection is already in progress. Return to the setup page for status.");
                 return;
             }
@@ -156,20 +164,21 @@ void startPortal() {
                 return;
             }
             settings = next;
-            Serial.println("[WiFi] Credentials saved to EEPROM; restart queued");
-            message = "Credentials saved. Restarting to connect to your Wi-Fi...";
+            Serial.println("[WiFi] Credentials saved to EEPROM; new connection queued");
+            message = "Credentials saved. Setup hotspot will close for a 10-second connection attempt.";
             server.sendHeader("Cache-Control", "no-store");
             server.send(200, "text/html",
                         "<!doctype html><html lang=\"en\"><head>"
                         "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                         "<title>TechPulse Wi-Fi saved</title></head><body>"
                         "<h1>Wi-Fi credentials saved</h1>"
-                        "<p>TechPulse is restarting to connect to your Wi-Fi. The setup hotspot will disconnect.</p>"
-                        "<p>Rejoin your regular Wi-Fi. If the connection fails, the setup hotspot will return.</p>"
+                        "<p>The setup hotspot will close while TechPulse tries your Wi-Fi for 10 seconds.</p>"
+                        "<p>If connection fails, rejoin TechPulse-Setup and open http://192.168.4.1 to try again.</p>"
+                        "<p><a href=\"/\">Return to setup and connection status</a></p>"
                         "</body></html>");
-            // Let the HTTP response reach the browser before restarting from the loop.
-            restartQueuedAt = millis();
-            restartQueued = true;
+            // Let the response reach the browser before switching station networks.
+            connectionQueuedAt = millis();
+            connectionQueued = true;
         });
         server.onNotFound([]() {
             server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString() + "/");
@@ -196,13 +205,9 @@ void beginWifiSetup() {
     if (!storageReady)
         Serial.println("[WiFi] Credential storage unavailable; changes will not survive reboot");
     if (storageReady) EEPROM.get(0, settings);
-    // The earlier two-network record starts with its primary network at the same offset.
-    if ((settings.magic == SETTINGS_MAGIC || settings.magic == 0x54505732) &&
+    // New format seeds this firmware's config credentials once on upgrade.
+    if (settings.magic == SETTINGS_MAGIC &&
         validNetwork(settings.network) && settings.network.ssid[0]) {
-        if (settings.magic != SETTINGS_MAGIC) {
-            settings.magic = SETTINGS_MAGIC;
-            if (!saveSettings(settings)) Serial.println("[WiFi] EEPROM migration save failed");
-        }
         Serial.printf("[WiFi] Loaded SSID from EEPROM: %s\n", settings.network.ssid);
         startSequence();
         return;
@@ -211,18 +216,6 @@ void beginWifiSetup() {
     settings.magic = SETTINGS_MAGIC;
     pendingSsid = WIFI_SSID;
     pendingPassword = WIFI_PASSWORD;
-    // Migrate the network saved by the previous single-network firmware.
-    bool legacyReady = preferences.begin("techpulse-wifi", true);
-    String saved = legacyReady ? preferences.getString("credentials", "") : String();
-    if (legacyReady) preferences.end();
-    if (saved.length() > 1) {
-        unsigned int ssidLength = static_cast<uint8_t>(saved[0]);
-        if (ssidLength >= 1 && ssidLength <= 32 && saved.length() >= ssidLength + 1 &&
-            saved.length() - ssidLength - 1 <= 64) {
-            pendingSsid = saved.substring(1, ssidLength + 1);
-            pendingPassword = saved.substring(ssidLength + 1);
-        }
-    }
     if (pendingSsid.length() <= 32 && pendingPassword.length() <= 64) {
         pendingSsid.toCharArray(settings.network.ssid, sizeof(settings.network.ssid));
         pendingPassword.toCharArray(settings.network.password, sizeof(settings.network.password));
@@ -237,10 +230,10 @@ void serviceWifiSetup() {
         dns.processNextRequest();
         server.handleClient();
     }
-    if (restartQueued) {
-        if (millis() - restartQueuedAt >= RESTART_DELAY_MS) {
-            Serial.println("[WiFi] Restarting to connect using saved credentials");
-            ESP.restart();
+    if (connectionQueued) {
+        if (millis() - connectionQueuedAt >= SUBMISSION_DELAY_MS) {
+            connectionQueued = false;
+            startSequence();
         }
         return;
     }
@@ -248,19 +241,10 @@ void serviceWifiSetup() {
         if (connecting) {
             connecting = false;
             wasConnected = true;
-            message = "Connected! Setup hotspot closes in 8 seconds.";
+            message = "Connected to saved network.";
             pendingPassword = "";
-            connectedAt = millis();
             Serial.printf("[WiFi] Connected to SSID: %s; IP: %s\n",
                           WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
-        }
-        if (portalActive && wasConnected && millis() - connectedAt >= 8000) {
-            server.stop();
-            dns.stop();
-            WiFi.softAPdisconnect(true);
-            WiFi.mode(WIFI_STA);
-            portalActive = false;
-            Serial.println("[WiFi] Setup hotspot stopped; station connected");
         }
         return;
     }
@@ -273,9 +257,10 @@ void serviceWifiSetup() {
         connecting = false;
         WiFi.disconnect(false, false);
         pendingPassword = "";
-        message = "Connection failed. Check the Wi-Fi name and password, then save and try again.";
-        Serial.println("[WiFi] Saved network failed; setup hotspot available for another submission");
+        message = "Connection failed after 10 seconds. Enter credentials to try again.";
+        Serial.println("[WiFi] Starting AP-only setup; station retries paused");
+        startPortal();
     }
-    if (!connecting && !portalActive)
+    if (!connecting && !wasConnected && !portalActive)
         startPortal();
 }
